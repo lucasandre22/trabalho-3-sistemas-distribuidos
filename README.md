@@ -34,3 +34,7 @@ nome_objeto.method()
 #4. Client needs to get the server URI (can use the name service) (the two sides has request loops)
 
 #5. User needs to interact with application
+
+Pyro5.api,config.SERIALIZER="marshal"
+
+Pyro5.server.behavior(instance_mode="single")

@@ -25,6 +25,13 @@ class Server:
 
     def verifySignature(self):
         print("register")
+    
+    @Pyro5.api.expose
+    def store_new_product(self, json_product):
+        if not self.verifySignature(json_product):
+            return 'Error: invalid signature'
+        
+
 
 daemon = Pyro5.api.Daemon()             # make a Pyro daemon
 uri = daemon.register(Server)    # register the greeting maker as a Pyro object

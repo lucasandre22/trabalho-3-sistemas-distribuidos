@@ -6,6 +6,7 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from dotenv import load_dotenv
 import datetime
+import json
 
 load_dotenv() 
 
@@ -44,9 +45,37 @@ def read_product_from_input():
 
     return product
 
-def sendNewProduct(server, json_product):
-    # assina json_product antes
-    response = server.store_new_product(json_product)
+def read_subtract_input():
+    code = input("Enter the product code to subtract: ")
+    quantity_to_subtract = int(input("Enter the quantity to subtract: "))
+    current_datetime = datetime.datetime.now()
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+    subtract_request = {
+        'code': code,
+        'quantity': quantity_to_subtract,
+        'date': formatted_datetime
+    }
+
+    return subtract_request
+
+def subtract_product():
+    subtract_request = read_subtract_input()
+    signed_subtract_request = sign_product(subtract_request, private_key)
+    response = server.subtract_product(signed_subtract_request)
+    print(response)
+
+
+def sign_product(product, private_key):
+    product_json = json.dumps(product, sort_keys=True)
+    hash = SHA256.new(product_json.encode())
+    signature = pkcs1_15.new(private_key).sign(hash)
+    product['signature'] = signature.hex()
+
+    return product
+
+def send_signed_product(server, signed_product):
+    response = server.store_new_product(signed_product)
     return response
 
 class Client(object):
@@ -72,9 +101,44 @@ daemon = Pyro5.api.Daemon()
 uri = daemon.register(Client)
 print("Ready. Client uri =", uri)
 
-server = Pyro5.api.Proxy("PYRO:obj_2831bffb8c7146eba4170354f4dff86c@localhost:32835")
+server = Pyro5.api.Proxy("PYRO:obj_5c1bbf18fe954989abbf0560b327c68b@localhost:53611")
 key_base64 = base64.b64encode(public_key.export_key()).decode("utf-8")
-server.register(key_base64, uri)
+
+
+#add product
+# product = read_product_from_input()
+# signed_product = sign_product(product, private_key)
+# response = send_signed_product(server, signed_product)
+# print(response)
+
+while True:
+    print("\nMenu:")
+    print("1. Registrar Usuario")
+    #necessario ter um usuario antes de por produto
+    print("2. Lançamento de entrada de produto")
+    print("3. Lançamento de saida de produto")
+    print("4. Quit")
+
+    choice = input("Enter your choice: ")
+
+    if choice == '1':
+        #user_info = read_user_from_input()
+        #public_key = user_info['public_key']
+        #remote_uri = user_info['remote_uri']
+        #server.register(public_key, remote_uri)
+        server.register(key_base64, uri)  
+    elif choice == '2':
+        product = read_product_from_input()
+        signed_product = sign_product(product, private_key)
+        response = send_signed_product(server, signed_product)
+        print(response)  
+    elif choice == '3':
+        subtract_product()
+    elif choice == '4':
+        print("Sair")
+        break
+    else:
+        print("Invalid choice. Please try again.")
 
 
 daemon.requestLoop()

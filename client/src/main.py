@@ -78,6 +78,10 @@ def send_signed_product(server, signed_product):
     response = server.store_new_product(signed_product)
     return response
 
+
+
+
+
 class Client(object):
 
     @Pyro5.api.expose
@@ -90,6 +94,7 @@ class Client(object):
     
 message = b'To be signed'
 
+
 hash = SHA256.new(message)
 private_key = RSA.import_key(open(os.environ["PRIVATE_KEY"]).read())
 signature_object = pkcs1_15.new(private_key)
@@ -101,10 +106,10 @@ daemon = Pyro5.api.Daemon()
 uri = daemon.register(Client)
 print("Ready. Client uri =", uri)
 
-server = Pyro5.api.Proxy("PYRO:obj_5c1bbf18fe954989abbf0560b327c68b@localhost:53611")
+server = Pyro5.api.Proxy("PYRO:obj_07444d9733eb49eb9b8976ded660baf1@localhost:61765")
 key_base64 = base64.b64encode(public_key.export_key()).decode("utf-8")
 
-
+products = []
 #add product
 # product = read_product_from_input()
 # signed_product = sign_product(product, private_key)
@@ -117,7 +122,8 @@ while True:
     #necessario ter um usuario antes de por produto
     print("2. Lançamento de entrada de produto")
     print("3. Lançamento de saida de produto")
-    print("4. Quit")
+    print("4. Periodo de tempo")
+    print("5. Quit")
 
     choice = input("Enter your choice: ")
 
@@ -135,6 +141,10 @@ while True:
     elif choice == '3':
         subtract_product()
     elif choice == '4':
+        seconds_to_subtract = int(input("Enter the number of seconds to subtract: "))
+        products = server.get_products_after_seconds(seconds_to_subtract)
+        print(products)
+    elif choice == '5':
         print("Sair")
         break
     else:

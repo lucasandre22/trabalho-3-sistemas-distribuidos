@@ -6,6 +6,7 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 import json
+from datetime import datetime, timedelta
 
 os.environ["PYRO_LOGFILE"] = ".pyro.log"
 os.environ["PYRO_LOGLEVEL"] = "DEBUG"
@@ -61,14 +62,14 @@ class Server:
                 if product['code'] == product_code:
                     product['quantity'] += json_product.get('quantity')
                     json_product['quantity'] = product['quantity']
-                    self.products.append(json_product)
                     print(f"Added {json_product.get('quantity')} units to existing product with code {product_code}.")
                     print(self.products)
                     break
             else:
                 self.products.append(json_product)
                 print(f"Added a new product with code {product_code}.")
-                return 'Success: Product stored.'
+            
+            return 'Success: Product stored.'
         else:
             return 'Error: Invalid signature'
         
@@ -93,6 +94,32 @@ class Server:
         else:
             return 'Error: Invalid signature'
         
+    @Pyro5.api.expose
+    def get_products_after_seconds(self, seconds_to_subtract):
+        filtered_products = []
+        try:
+            seconds_to_subtract = int(seconds_to_subtract)
+            current_datetime = datetime.now()
+            time_difference = timedelta(seconds=seconds_to_subtract)
+            result_datetime = current_datetime - time_difference
+            
+            for product in self.products:
+                product_time_str = product.get('date', '')
+                try:
+                    product_time = datetime.strptime(product_time_str, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    continue
+
+                if product_time > result_datetime:
+                    filtered_products.append(product)
+            
+            if not filtered_products:
+                return 'No products found within the specified time period.'
+            
+            return filtered_products
+        
+        except ValueError:
+            return 'Error: Invalid input for seconds.'
 
 
 daemon = Pyro5.api.Daemon()   

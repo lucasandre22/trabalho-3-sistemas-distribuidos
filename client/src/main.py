@@ -21,13 +21,13 @@ class Client(object):
 
     @Pyro5.api.expose
     def notify_product_emptying(self, product):
-        print("Notification from server:")
-        print("Product " + str(product.get("product_name")) + " reached the minimum stock at " + str(product.get('quantity_left')))
+        print("Notificação do servidor:")
+        print("Produto " + str(product.get("product_name")) + " alcançou o estoque minimo " + str(product.get('quantity_left')))
 
     @Pyro5.api.expose
     def notify_product_not_being_sold(self, products):
-        print("Notification from server:")
-        print("Products not being sold: ",  products)
+        print("Notificação do servidor:")
+        print("Produtos nao sendo vendidos: ",  products)
         
 current_user: Client = None
 
@@ -43,7 +43,7 @@ thread.start()
 print("Ready. Client uri =", uri)
 
 
-server_uri = input("Enter the server URI: ")
+server_uri = input("Entre com a URI do servidor: ")
 server = Pyro5.api.Proxy(server_uri)
 key_base64 = base64.b64encode(public_key.export_key()).decode("utf-8")
 
@@ -62,11 +62,10 @@ def get_current_datetime():
     return current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
 def read_user_from_input():
-    name = input("Enter your name: ")
-    public_key = input("Enter your public key: ")
-    remote_uri = input("Enter your remote URI: ")
+    name = input("Entre com seu nome: ")
+    public_key = input("Entre com sua chave publica: ")
+    remote_uri = input("Entre com o URI remoto: ")
 
-    # Save current client (user)
     global current_user
     current_user = Client(name=name, public_key=public_key, remote_uri=remote_uri)
 
@@ -79,12 +78,12 @@ def read_new_user_and_send_to_server():
     server.register_user(public_key, remote_uri)
 
 def read_product_from_input():
-    code = input("Enter the product code: ")
-    name = input("Enter the product name: ")
-    description = input("Enter the product description: ")
-    quantity = int(input("Enter the product quantity: "))
-    unit_price = float(input("Enter the product unit price: "))
-    minimum_stock = int(input("Enter the product minimum stock: "))
+    code = input("Entre com o codigo do produto: ")
+    name = input("Entre com o nome do produto: ")
+    description = input("Entre com a descrição do produto: ")
+    quantity = int(input("Entre com a quantidade de produtos: "))
+    unit_price = float(input("Entre com o preço da unidade: "))
+    minimum_stock = int(input("Entre com o estoque minimo: "))
 
     product = {
         'code': code,
@@ -100,14 +99,14 @@ def read_product_from_input():
     
 def read_new_product_and_send_to_server():
     if current_user is None:
-        return "Error: a user must be previously registered to make requests"
+        return "Erro: deve existir um usuário previamente registrado para fazer requisições."
     product = read_product_from_input()
     signed_product = sign_message(product, private_key)
     return server.store_new_product(signed_product)
 
 def read_product_to_subtract_from_input():
-    code = input("Enter the product code to subtract: ")
-    quantity_to_subtract = int(input("Enter the quantity to subtract: "))
+    code = input("Entre com o codigo do produto a ser subtraido: ")
+    quantity_to_subtract = int(input("Entre com a quantidade a ser subtraida: "))
 
     subtract_request = {
         'code': code,
@@ -118,23 +117,30 @@ def read_product_to_subtract_from_input():
 
 def read_product_to_subtract_and_send_to_server():
     if current_user is None:
-        return "Error: a user must be previously registered to make requests"
+        return "Erro: deve existir um usuário previamente registrado para fazer requisições."
     subtract_request = read_product_to_subtract_from_input()
     signed_subtract_request = sign_message(subtract_request, private_key)
     return server.subtract_product(signed_subtract_request)
 
+def check_if_there_is_a_user_registered():
+    if current_user == None:
+        print("Erro: deve existir um usuário previamente registrado para fazer requisições.")
+        return False
+    else:
+        return True
+
 
 while True:
     print("\nMenu:")
-    print("1. Register User")
-    print("2. Store product")
+    print("1. Registrar Usuario")
+    print("2. Armazenar Produto")
     print("3. Lançamento de saida de produto")
-    print("4. List available stock")
-    print("5. Stock flow by period")
-    print("6. Products without movimentation by period")
-    print("7. Quit")
+    print("4. Listar produtos em estoque")
+    print("5. Mostrar fluxo do estoque por periodo")
+    print("6. Mostrar produtos sem movimentação por periodo")
+    print("7. Sair")
 
-    choice = input("Enter your choice: ")
+    choice = input("Entre com a sua opção: ")
 
     if choice == '1':
         read_new_user_and_send_to_server()
@@ -147,18 +153,21 @@ while True:
         response = read_product_to_subtract_and_send_to_server()
         print(response)
     elif choice == '4':
-        response = server.get_products_in_stock()
-        print("These are the products in stock: ", response)
+        if check_if_there_is_a_user_registered():
+            response = server.get_products_in_stock()
+            print("Produtos em estoque: ", response)
     elif choice == '5':
-        seconds = int(input("Enter the time in seconds: "))
-        products = server.get_stock_flow(seconds)
-        print(products)
+        if check_if_there_is_a_user_registered():
+            seconds = int(input("Entre com o tempo em segundos: "))
+            products = server.get_stock_flow(seconds)
+            print(products)
     elif choice == '6':
-        seconds = int(input("Enter the time in seconds: "))
-        products = server.get_products_without_movimentation_by_period(seconds)
-        print(products)
+        if check_if_there_is_a_user_registered():
+            seconds = int(input("Entre com o tempo em segundos: "))
+            products = server.get_products_without_movimentation_by_period(seconds)
+            print(products)
     elif choice == '7':
         thread.stop()
         exit(0)
     else:
-        print("Invalid choice. Please try again.")
+        print("Opção Inválida.")

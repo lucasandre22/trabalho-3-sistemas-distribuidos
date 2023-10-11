@@ -205,18 +205,6 @@ class Server:
                 })
 
         return products_in_stock
-    
-    @Pyro5.api.expose
-    def get_products_in_stock(self):
-        products_in_stock = []
-        for product in self.products:
-            if product['quantity'] > 0:
-                products_in_stock.append({
-                    'product': product["name"],
-                    'quantity': product["quantity"]
-                })
-
-        return products_in_stock
 
 
 daemon = Pyro5.api.Daemon()   

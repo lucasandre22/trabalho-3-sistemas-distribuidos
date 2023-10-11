@@ -14,22 +14,20 @@ os.environ["PYRO_LOGLEVEL"] = "INFO"
 Pyro5.api.config.SERIALIZER="marshal"
 
 class Client(object):
-    def __init__(self, name, id: int):
+    def __init__(self, name: str="", public_key: str="", remote_uri: str=""):
         self.name = name
-        self.id = id
-    
-    def get_id(self) -> int:
-        return self.id
+        self.public_key = public_key
+        self.remote_uri = remote_uri
 
     @Pyro5.api.expose
-    def notify_product_emptying(self, product_emptying):
-        print("Notification from server for user " + self.name + ":")
-        
-        print("")
+    def notify_product_emptying(self, product):
+        print("Notification from server:")
+        print("Product " + str(product.get("product_name")) + " reached the minimum stock at " + str(product.get('quantity_left')))
 
     @Pyro5.api.expose
-    def notify_product_not_being_sold(self):
-        print("")
+    def notify_product_not_being_sold(self, products):
+        print("Notification from server:")
+        print("Products not being sold: ",  products)
         
 current_user: Client = None
 
@@ -38,10 +36,18 @@ public_key = RSA.import_key(open(os.environ["PUBLIC_KEY"]).read())
 
 daemon = Pyro5.api.Daemon()
 uri = daemon.register(Client)
+import threading
+thread = threading.Thread(target=daemon.requestLoop) #test
+thread.start()
+
 print("Ready. Client uri =", uri)
 
-server = Pyro5.api.Proxy("PYRO:obj_07444d9733eb49eb9b8976ded660baf1@localhost:61765")
+
+server_uri = input("Enter the server URI: ")
+server = Pyro5.api.Proxy(server_uri)
 key_base64 = base64.b64encode(public_key.export_key()).decode("utf-8")
+
+
 
 def sign_message(message, private_key) -> str:
     message_json = json.dumps(message, sort_keys=True)
@@ -58,7 +64,11 @@ def get_current_datetime():
 def read_user_from_input():
     name = input("Enter your name: ")
     public_key = input("Enter your public key: ")
-    remote_uri = input("Enter the remote URI: ")
+    remote_uri = input("Enter your remote URI: ")
+
+    # Save current client (user)
+    global current_user
+    current_user = Client(name=name, public_key=public_key, remote_uri=remote_uri)
 
     return {'name': name, 'public_key': public_key, 'remote_uri': remote_uri}
 
@@ -75,6 +85,7 @@ def read_product_from_input():
     quantity = int(input("Enter the product quantity: "))
     unit_price = float(input("Enter the product unit price: "))
     minimum_stock = int(input("Enter the product minimum stock: "))
+
     product = {
         'code': code,
         'name': name,
@@ -110,30 +121,24 @@ def read_product_to_subtract_and_send_to_server():
         return "Error: a user must be previously registered to make requests"
     subtract_request = read_product_to_subtract_from_input()
     signed_subtract_request = sign_message(subtract_request, private_key)
-    return server.subtract_product(signed_subtract_request, current_user.get_id())
+    return server.subtract_product(signed_subtract_request)
 
 
 while True:
     print("\nMenu:")
-    print("1. Registrar Usuario")
-    print("2. Lançamento de entrada de produto")
+    print("1. Register User")
+    print("2. Store product")
     print("3. Lançamento de saida de produto")
     print("4. List available stock")
-    print("5. Periodo de tempo")
-    print("6. Quit")
+    print("5. Stock flow by period")
+    print("6. Products without movimentation by period")
+    print("7. Quit")
 
     choice = input("Enter your choice: ")
 
     if choice == '1':
-        #user_info = read_user_from_input()
-        #public_key = user_info['public_key']
-        #remote_uri = user_info['remote_uri']
-        #server.register_user(public_key, remote_uri)
         read_new_user_and_send_to_server()
         response = server.register_user(key_base64, uri)
-        if "id" in response:
-            id = response.get("id")
-            current_user = Client(id)
         print(response)
     elif choice == '2':
         response = read_new_product_and_send_to_server()
@@ -143,16 +148,17 @@ while True:
         print(response)
     elif choice == '4':
         response = server.get_products_in_stock()
-        print(response)
+        print("These are the products in stock: ", response)
     elif choice == '5':
-        seconds_to_subtract = int(input("Enter the time in seconds: "))
-        products = server.get_products_after_seconds(seconds_to_subtract)
+        seconds = int(input("Enter the time in seconds: "))
+        products = server.get_stock_flow(seconds)
         print(products)
     elif choice == '6':
-        print("Sair")
-        break
+        seconds = int(input("Enter the time in seconds: "))
+        products = server.get_products_without_movimentation_by_period(seconds)
+        print(products)
+    elif choice == '7':
+        thread.stop()
+        exit(0)
     else:
         print("Invalid choice. Please try again.")
-
-
-daemon.requestLoop()
